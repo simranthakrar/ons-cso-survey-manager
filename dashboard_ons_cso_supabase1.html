@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ONS &amp; CSO Survey Manager</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --navy:#003B5C;
+    --teal:#00617F;
+    --med-teal:#4F868E;
+    --steel:#6BA4B8;
+    --pale:#B9D9EB;
+    --purple:#614B79;
+    --ink:#3F3F3F;
+    --paper:#FBFCFD;
+    --line:#DCE6EA;
+    --pale-tint:#EAF3F8;
+    --steel-tint:rgba(107,164,184,0.16);
+    --purple-tint:rgba(97,75,121,0.14);
+    --grey-tint:#F0F2F3;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:Arial, Helvetica, sans-serif;}
+  a{color:var(--teal);}
+
+  /* ===== Header ===== */
+  .app-header{background:linear-gradient(120deg,var(--navy) 0%, var(--teal) 100%);color:#fff;padding:28px 32px 22px;}
+  .app-header .eyebrow{font-size:13px;color:var(--pale);margin:0 0 4px;}
+  .app-header h1{margin:0;font-size:24px;font-weight:700;letter-spacing:.2px;}
+  .app-header p{margin:6px 0 0;font-size:13.5px;color:#E3F1F7;max-width:640px;}
+  .header-meta{display:flex;gap:26px;margin-top:16px;flex-wrap:wrap;}
+  .header-meta div{font-size:12.5px;color:#DDEEF5;}
+  .header-meta strong{display:block;font-size:19px;color:#fff;font-weight:700;}
+
+  /* ===== Tabs ===== */
+  .tabbar{display:flex;gap:2px;background:#fff;border-bottom:1px solid var(--line);padding:0 32px;overflow-x:auto;}
+  .tabbar button{border:none;background:transparent;padding:14px 16px;font-size:14px;font-family:inherit;color:var(--ink);cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap;}
+  .tabbar button.active{color:var(--navy);border-bottom-color:var(--med-teal);font-weight:700;}
+  .tabbar button:hover{color:var(--teal);}
+
+  main{padding:24px 32px 60px;max-width:1400px;margin:0 auto;}
+
+  /* ===== Cards ===== */
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:26px;}
+  .kpi{background:#fff;border:1px solid var(--line);border-left:4px solid var(--med-teal);border-radius:6px;padding:14px 16px;}
+  .kpi.alert{border-left-color:var(--navy);}
+  .kpi .num{font-size:28px;font-weight:700;color:var(--navy);line-height:1;}
+  .kpi .lbl{font-size:12.5px;color:var(--ink);margin-top:6px;}
+
+  .panel{background:#fff;border:1px solid var(--line);border-radius:6px;padding:18px 20px;margin-bottom:22px;}
+  .panel h2{margin:0 0 14px;font-size:16px;color:var(--navy);font-weight:700;}
+  .panel h3{margin:18px 0 8px;font-size:13.5px;color:var(--teal);font-weight:700;}
+
+  /* ===== Urgency timeline ===== */
+  .timeline{position:relative;padding-left:22px;}
+  .timeline::before{content:"";position:absolute;left:6px;top:4px;bottom:4px;width:2px;background:var(--line);}
+  .t-row{position:relative;padding:10px 0;border-bottom:1px solid var(--line);}
+  .t-row:last-child{border-bottom:none;}
+  .t-dot{position:absolute;left:-22px;top:16px;width:10px;height:10px;border-radius:50%;background:var(--steel);}
+  .t-dot.danger{background:var(--navy);}
+  .t-dot.warning{background:var(--purple);}
+  .t-row-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+  .t-name{font-weight:700;font-size:14px;color:var(--ink);}
+  .t-sub{font-size:12px;color:var(--med-teal);margin-top:2px;}
+
+  /* ===== Badges ===== */
+  .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11.5px;font-weight:700;white-space:nowrap;}
+  .badge.b-danger{background:var(--navy);color:#fff;}
+  .badge.b-warning{background:var(--purple-tint);color:var(--purple);}
+  .badge.b-info{background:var(--steel-tint);color:var(--teal);}
+  .badge.b-ok{background:var(--pale-tint);color:var(--teal);}
+  .badge.b-neutral{background:var(--grey-tint);color:#6B6B6B;}
+  .badge.cat-ons{background:var(--navy);color:#fff;}
+  .badge.cat-cso{background:var(--purple);color:#fff;}
+  .status-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:12px;font-size:11.5px;font-weight:700;}
+  .status-pill.s-not{background:var(--grey-tint);color:#6B6B6B;}
+  .status-pill.s-prog{background:var(--purple-tint);color:var(--purple);}
+  .status-pill.s-done{background:var(--steel-tint);color:var(--teal);}
+
+  /* ===== Bars ===== */
+  .bar-row{display:grid;grid-template-columns:150px 1fr 34px;align-items:center;gap:10px;margin-bottom:9px;font-size:13px;}
+  .bar-track{background:var(--grey-tint);border-radius:4px;height:14px;overflow:hidden;}
+  .bar-fill{height:100%;background:var(--med-teal);border-radius:4px;}
+
+  /* ===== Table ===== */
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{background:var(--med-teal);color:#fff;text-align:left;padding:10px 12px;font-weight:700;white-space:nowrap;}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  tbody tr:hover{background:var(--pale-tint);}
+  .contacts-cell{max-width:230px;font-size:12px;color:var(--ink);}
+  .name-cell strong{display:block;font-size:13.5px;}
+  .name-cell span{font-size:11.5px;color:var(--med-teal);}
+
+  .btn{font-family:inherit;font-size:12.5px;font-weight:700;padding:7px 14px;border-radius:5px;border:1px solid var(--teal);background:#fff;color:var(--teal);cursor:pointer;}
+  .btn:hover{background:var(--pale-tint);}
+  .btn.primary{background:var(--teal);color:#fff;}
+  .btn.primary:hover{background:var(--navy);}
+  .btn.small{padding:5px 10px;font-size:11.5px;}
+  .link-chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--teal);text-decoration:none;}
+  .link-chip.empty{color:#9AA7AC;font-style:italic;}
+  .doc-cell{display:flex;flex-direction:column;gap:4px;}
+  .status-select{font-family:inherit;border:none;border-radius:12px;padding:4px 10px;font-size:11.5px;font-weight:700;cursor:pointer;}
+  .file-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .file-row input[type=file]{font-size:12px;max-width:220px;}
+  .file-current{font-size:12px;color:var(--ink);margin-top:5px;}
+  .file-current a{color:var(--teal);}
+
+  /* ===== Filters ===== */
+  .filters{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+  .filters input[type=text], .filters select{font-family:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--ink);}
+  .filters input[type=text]{min-width:220px;}
+
+  /* ===== Calendar ===== */
+  .cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .cal-head h2{margin:0;}
+  .cal-nav{display:flex;gap:8px;align-items:center;}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .cal-dow{font-size:11px;font-weight:700;color:var(--med-teal);text-align:center;padding-bottom:4px;}
+  .cal-cell{min-height:86px;border:1px solid var(--line);border-radius:5px;padding:6px;background:#fff;}
+  .cal-cell.out{background:var(--grey-tint);opacity:.55;}
+  .cal-cell.today{border-color:var(--med-teal);border-width:2px;}
+  .cal-date{font-size:11.5px;font-weight:700;color:var(--ink);margin-bottom:4px;}
+  .cal-pill{display:block;font-size:10.5px;padding:2px 6px;border-radius:8px;background:var(--purple-tint);color:var(--purple);margin-bottom:3px;cursor:pointer;line-height:1.3;}
+  .cal-pill.cso{background:var(--steel-tint);color:var(--teal);}
+
+  /* ===== Deadline patterns ===== */
+  .pattern-card{border:1px solid var(--line);border-radius:6px;padding:14px 16px;margin-bottom:12px;}
+  .pattern-card .p-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;}
+  .pattern-card .p-name{font-weight:700;font-size:14px;}
+  .pattern-card .p-meta{font-size:12px;color:var(--med-teal);margin-top:3px;}
+  .pattern-history{margin-top:10px;font-size:12px;color:var(--ink);}
+  .hist-chip{display:inline-block;background:var(--grey-tint);border-radius:4px;padding:3px 8px;margin:2px 4px 2px 0;font-size:11.5px;}
+
+  /* ===== Contacts ===== */
+  .contact-groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;}
+  .contact-group h3{margin:0 0 10px;}
+  .contact-card{border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-bottom:10px;background:#fff;}
+  .contact-card strong{font-size:13.5px;}
+  .contact-card .c-role{font-size:12px;color:var(--med-teal);margin:3px 0 6px;}
+  .contact-card .c-surveys{font-size:11.5px;color:#6B6B6B;}
+
+  /* ===== Modal ===== */
+  .overlay{position:fixed;inset:0;background:rgba(0,59,92,0.45);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;z-index:50;}
+  .overlay.show{display:flex;}
+  .modal{background:#fff;border-radius:8px;width:100%;max-width:620px;padding:26px 28px 22px;}
+  .modal h2{margin:0 0 4px;font-size:18px;color:var(--navy);}
+  .modal .m-sub{font-size:12.5px;color:var(--med-teal);margin-bottom:18px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:5px;}
+  .field .hint{font-size:11px;color:#8A9599;font-weight:400;margin-top:4px;}
+  .field input[type=text], .field input[type=date], .field select, .field textarea{
+    width:100%;font-family:inherit;font-size:13.5px;padding:8px 10px;border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--ink);
+  }
+  .field textarea{min-height:80px;resize:vertical;}
+  .field input[type=date]{cursor:pointer;}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end;}
+  .contact-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:10px;}
+  .contact-picker label{display:flex;align-items:center;gap:6px;font-weight:400;margin-bottom:0;cursor:pointer;}
+  .contact-picker input[type=checkbox]{cursor:pointer;}
+
+  /* ===== Loading ===== */
+  .loading{display:flex;justify-content:center;align-items:center;gap:8px;color:var(--med-teal);font-size:13px;}
+  .loading::after{content:"";display:inline-block;width:14px;height:14px;border:2px solid var(--med-teal);border-right-color:transparent;border-radius:50%;animation:spin 0.6s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .sync-status{font-size:11px;color:#8A9599;margin-top:8px;font-style:italic;}
+
+  /* ===== Empty state ===== */
+  .empty-state{text-align:center;padding:40px 20px;color:var(--med-teal);}
+  .empty-state p{margin:0;font-size:13.5px;}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="eyebrow">RenaissanceRe Finance Regulatory Reporting</div>
+  <h1>ONS &amp; CSO Survey Manager</h1>
+  <p>Centralized tracking and coordination for all mandatory statistical survey submissions across five legal entities.</p>
+  <div class="header-meta">
+    <div><strong id="todayLabel"></strong> Today</div>
+    <div>Sync status: <strong id="syncStatus">Initializing...</strong></div>
+  </div>
+</header>
+
+<div class="tabbar">
+  <button data-action="tab" data-tab="dashboard" class="active">Dashboard</button>
+  <button data-action="tab" data-tab="master">Master Index</button>
+  <button data-action="tab" data-tab="calendar">Calendar</button>
+  <button data-action="tab" data-tab="patterns">Deadline Patterns</button>
+  <button data-action="tab" data-tab="contacts">Contacts</button>
+</div>
+
+<main>
+  <div id="dashboard-tab" class="tab-content">
+    <div id="dashboardContent"></div>
+  </div>
+  <div id="master-tab" class="tab-content" style="display:none;">
+    <div id="masterContent"></div>
+  </div>
+  <div id="calendar-tab" class="tab-content" style="display:none;">
+    <div id="calendarContent"></div>
+  </div>
+  <div id="patterns-tab" class="tab-content" style="display:none;">
+    <div id="patternsContent"></div>
+  </div>
+  <div id="contacts-tab" class="tab-content" style="display:none;">
+    <div id="contactsContent"></div>
+  </div>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+/* ========================================================
+   SUPABASE CONFIG
+   ======================================================== */
+const SUPABASE_URL = 'https://gbitjolxthmfjkpapmng.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdiaXRqb2x4dGhtZmprcGFwbm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkzNjU1NTEsImV4cCI6MjEwNDk0MTU1MX0.muoDF6GrD-cLroXTxeV_vSnFCVXHm6IQdITeCYAaPRE
+';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ========================================================
+   STATE & CONFIG
+   ======================================================== */
+const TODAY = new Date();
+const CONTACTS = [
+  { id: 'mb-hr', name: 'Martin Blackburn', team: 'HR', surveys: ['BICS'] },
+  { id: 'sb-hr', name: 'Shazeda Begum', team: 'HR', surveys: ['BICS'] },
+  { id: 'gr-hr', name: 'Georgie Rawe', team: 'HR', surveys: ['BICS'] },
+  { id: 'vr-payroll', name: 'Veekash Rampeearee', team: 'Payroll', surveys: ['BICS'] },
+  { id: 'me-payroll', name: 'Michael Edwards', team: 'Payroll', surveys: ['BICS'] },
+  { id: 'ls-esg', name: 'Lily Samett', team: 'ESG', surveys: ['BICS'] },
+  { id: 'vg-tech', name: 'Vishal Gautam', team: 'Technology/AI', surveys: ['BICS'] },
+];
+
+let SURVEYS = [];
+let activeTab = 'dashboard';
+let filters = { q: '', category: '', status: '', entity: '' };
+let calMonth = TODAY.getMonth();
+let calYear = TODAY.getFullYear();
+let isLoading = true;
+let isSynced = false;
+
+/* ========================================================
+   INITIALIZE
+   ======================================================== */
+async function initDashboard(){
+  document.getElementById('todayLabel').textContent = TODAY.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+  
+  // Check if Supabase is configured
+  if(SUPABASE_URL === 'YOUR_SUPABASE_URL_HERE'){
+    showSetupRequired();
+    return;
+  }
+
+  try {
+    await loadSurveys();
+    isSynced = true;
+    updateSyncStatus('Connected');
+    
+    // Check for URL parameters (Power Automate integration)
+    readURLParameters();
+    
+    renderAll();
+  } catch(e){
+    console.error('Init error:', e);
+    updateSyncStatus('Connection failed');
+  }
+}
+
+async function loadSurveys(){
+  const { data, error } = await supabase
+    .from('surveys')
+    .select('*')
+    .order('created_at', { ascending: false });
+  
+  if(error) throw error;
+  SURVEYS = (data || []).map(s => ({
+    ...s,
+    history: s.history || [],
+    contactIds: s.contact_ids || [],
+  }));
+}
+
+function updateSyncStatus(status){
+  document.getElementById('syncStatus').textContent = status;
+}
+
+function showSetupRequired(){
+  document.getElementById('dashboardContent').innerHTML = `
+    <div class="panel" style="border-color:#c0392b;">
+      <h2 style="color:#c0392b;">⚠️ Supabase Configuration Required</h2>
+      <p>To use this dashboard with team-shared data, you need to:</p>
+      <ol>
+        <li>Create a free Supabase account at <a href="https://supabase.com" target="_blank">supabase.com</a></li>
+        <li>Create a new project and note your Project URL and Anon Key</li>
+        <li>Create a table named <code>surveys</code> with columns: id, name, entity, frequency, owner, next_due, status, last_due, contact_ids, notes, submitted_pdf, proof_screenshot, excel_link, contacts_summary, manual_next_due, history, created_at, updated_at</li>
+        <li>Replace SUPABASE_URL and SUPABASE_ANON_KEY at the top of this HTML file</li>
+        <li>Reload the page</li>
+      </ol>
+      <p><strong>See deployment guide for step-by-step instructions.</strong></p>
+    </div>
+  `;
+}
+
+/* ========================================================
+   URL PARAMETERS (Power Automate Integration)
+   ======================================================== */
+function readURLParameters(){
+  const params = new URLSearchParams(window.location.search);
+  const surveyId = params.get('surveyId');
+  const dueDate = params.get('dueDate');
+  const source = params.get('source');
+
+  if(surveyId){
+    // Check if survey exists
+    let survey = SURVEYS.find(s => s.id === surveyId);
+    if(!survey){
+      // Create new survey from params
+      survey = {
+        id: surveyId,
+        name: surveyId,
+        entity: params.get('entity') || 'RSUKL',
+        frequency: params.get('frequency') || 'monthly',
+        owner: params.get('owner') || '',
+        next_due: dueDate || TODAY.toISOString().split('T')[0],
+        status: 'Not Started',
+        last_due: null,
+        contact_ids: [],
+        notes: `[Added from ${source || 'Power Automate'}]`,
+        manual_next_due: !!dueDate,
+      };
+      SURVEYS.push(survey);
+    }
+    // Open edit modal with this survey
+    setTimeout(() => openEdit(survey.id), 200);
+  }
+}
+
+/* ========================================================
+   RENDER FUNCTIONS
+   ======================================================== */
+function renderAll(){
+  const tab = activeTab;
+  if(tab === 'dashboard') renderDashboard();
+  else if(tab === 'master') renderMaster();
+  else if(tab === 'calendar') renderCalendar();
+  else if(tab === 'patterns') renderPatterns();
+  else if(tab === 'contacts') renderContacts();
+}
+
+function renderDashboard(){
+  const upcoming = SURVEYS.filter(s => s.next_due && new Date(s.next_due) > TODAY && s.next_due <= new Date(TODAY.getTime() + 7*24*60*60*1000)).length;
+  const overdue = SURVEYS.filter(s => s.next_due && new Date(s.next_due) < TODAY && s.status !== 'Complete').length;
+  const complete = SURVEYS.filter(s => s.status === 'Complete').length;
+
+  let html = `
+    <div class="kpi-row">
+      <div class="kpi"><div class="num">${SURVEYS.length}</div><div class="lbl">Total Surveys</div></div>
+      <div class="kpi alert"><div class="num">${overdue}</div><div class="lbl">Overdue</div></div>
+      <div class="kpi"><div class="num">${upcoming}</div><div class="lbl">Due This Week</div></div>
+      <div class="kpi"><div class="num">${complete}</div><div class="lbl">Completed</div></div>
+    </div>
+
+    <div class="panel">
+      <h2>Urgent: Overdue Surveys</h2>
+      ${overdue === 0 ? '<p style="color:var(--med-teal);">✓ All surveys on track</p>' : ''}
+      <div class="timeline">
+        ${SURVEYS
+          .filter(s => s.next_due && new Date(s.next_due) < TODAY && s.status !== 'Complete')
+          .sort((a,b) => new Date(a.next_due) - new Date(b.next_due))
+          .map(s => `
+            <div class="t-row">
+              <div class="t-dot danger"></div>
+              <div class="t-row-head">
+                <div>
+                  <div class="t-name">${s.name}</div>
+                  <div class="t-sub">${s.entity} • Due ${new Date(s.next_due).toLocaleDateString()}</div>
+                </div>
+                <button class="btn small" data-action="edit" data-id="${s.id}">Edit</button>
+              </div>
+            </div>
+          `).join('')}
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Due This Week</h2>
+      <div class="timeline">
+        ${SURVEYS
+          .filter(s => s.next_due && new Date(s.next_due) > TODAY && new Date(s.next_due) <= new Date(TODAY.getTime() + 7*24*60*60*1000))
+          .sort((a,b) => new Date(a.next_due) - new Date(b.next_due))
+          .map(s => `
+            <div class="t-row">
+              <div class="t-dot warning"></div>
+              <div class="t-row-head">
+                <div>
+                  <div class="t-name">${s.name}</div>
+                  <div class="t-sub">${s.entity} • Due ${new Date(s.next_due).toLocaleDateString()}</div>
+                </div>
+                <button class="btn small" data-action="edit" data-id="${s.id}">Edit</button>
+              </div>
+            </div>
+          `).join('')}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('dashboardContent').innerHTML = html;
+}
+
+function renderMaster(){
+  const filters_applied = [
+    filters.q ? `name: "${filters.q}"` : '',
+    filters.category ? `category: ${filters.category}` : '',
+    filters.status ? `status: ${filters.status}` : '',
+    filters.entity ? `entity: ${filters.entity}` : '',
+  ].filter(Boolean).join(' • ');
+
+  let filtered = SURVEYS;
+  if(filters.q) filtered = filtered.filter(s => s.name.toLowerCase().includes(filters.q.toLowerCase()));
+  if(filters.category) filtered = filtered.filter(s => (s.category || '') === filters.category);
+  if(filters.status) filtered = filtered.filter(s => s.status === filters.status);
+  if(filters.entity) filtered = filtered.filter(s => s.entity === filters.entity);
+
+  let html = `
+    <div class="filters">
+      <input type="text" id="fq" placeholder="Filter by name..." value="${filters.q}" />
+      <select id="fcat">
+        <option value="">Category</option>
+        <option value="ONS">ONS</option>
+        <option value="CSO">CSO</option>
+      </select>
+      <select id="fstatus">
+        <option value="">Status</option>
+        <option value="Not Started">Not Started</option>
+        <option value="In Progress">In Progress</option>
+        <option value="Complete">Complete</option>
+      </select>
+      <select id="fentity">
+        <option value="">Entity</option>
+        <option value="RSUKL">RSUKL</option>
+        <option value="RREAGUK">RREAGUK</option>
+        <option value="RSHUKL">RSHUKL</option>
+        <option value="RSE">RSE</option>
+        <option value="ROE">ROE</option>
+      </select>
+    </div>
+
+    ${filters_applied ? `<p style="font-size:12px;color:var(--med-teal);margin-bottom:12px;">Filters: ${filters_applied}</p>` : ''}
+
+    <div class="panel">
+      <h2>All Surveys (${filtered.length})</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Entity</th>
+              <th>Frequency</th>
+              <th>Status</th>
+              <th>Next Due</th>
+              <th>Contacts</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.map(s => `
+              <tr>
+                <td class="name-cell"><strong>${s.name}</strong><span>${s.category || 'Uncategorized'}</span></td>
+                <td>${s.entity}</td>
+                <td>${s.frequency || '—'}</td>
+                <td>
+                  <select class="status-select" data-action="quick-status" data-id="${s.id}" style="background:${statusColor(s.status)}">
+                    <option value="Not Started" ${s.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
+                    <option value="In Progress" ${s.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                    <option value="Complete" ${s.status === 'Complete' ? 'selected' : ''}>Complete</option>
+                  </select>
+                </td>
+                <td>${s.next_due ? new Date(s.next_due).toLocaleDateString() : '—'}</td>
+                <td class="contacts-cell">${s.contacts_summary || (s.contact_ids?.length ? `${s.contact_ids.length} assigned` : '—')}</td>
+                <td><button class="btn small" data-action="edit" data-id="${s.id}">Edit</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('masterContent').innerHTML = html;
+}
+
+function renderCalendar(){
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay = new Date(calYear, calMonth + 1, 0);
+  const startDate = new Date(firstDay);
+  startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+  const cells = [];
+  for(let i = 0; i < 42; i++){
+    cells.push(new Date(startDate.getTime() + i*24*60*60*1000));
+  }
+
+  const monthName = firstDay.toLocaleDateString('en-GB', {month:'long', year:'numeric'});
+
+  let html = `
+    <div class="panel">
+      <div class="cal-head">
+        <h2>Survey Due Dates — ${monthName}</h2>
+        <div class="cal-nav">
+          <button class="btn small" data-action="cal-prev">← Prev</button>
+          <button class="btn small" data-action="cal-today">Today</button>
+          <button class="btn small" data-action="cal-next">Next →</button>
+        </div>
+      </div>
+      <div class="cal-grid">
+        ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => `<div class="cal-dow">${d}</div>`).join('')}
+        ${cells.map(date => {
+          const isOut = date.getMonth() !== calMonth;
+          const isToday = date.getTime() === new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate()).getTime();
+          const dueSurveys = SURVEYS.filter(s => s.next_due && new Date(s.next_due).getTime() === date.getTime());
+          return `
+            <div class="cal-cell ${isOut ? 'out' : ''} ${isToday ? 'today' : ''}">
+              <div class="cal-date">${date.getDate()}</div>
+              ${dueSurveys.map(s => `<div class="cal-pill ${s.category === 'CSO' ? 'cso' : ''}" title="${s.name}">${s.name}</div>`).join('')}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('calendarContent').innerHTML = html;
+}
+
+function renderPatterns(){
+  const patterns = {};
+  SURVEYS.forEach(s => {
+    const freq = s.frequency || 'unknown';
+    if(!patterns[freq]) patterns[freq] = [];
+    patterns[freq].push(s);
+  });
+
+  let html = `<div>`;
+  Object.keys(patterns).forEach(freq => {
+    html += `
+      <div class="panel">
+        <h2>${freq.charAt(0).toUpperCase() + freq.slice(1)} Surveys (${patterns[freq].length})</h2>
+        ${patterns[freq].map(s => `
+          <div class="pattern-card">
+            <div class="p-head">
+              <div>
+                <div class="p-name">${s.name}</div>
+                <div class="p-meta">${s.entity}</div>
+              </div>
+              <span class="badge ${s.status === 'Complete' ? 'b-ok' : 'b-neutral'}">${s.status}</span>
+            </div>
+            ${s.history && s.history.length > 0 ? `
+              <div class="pattern-history">
+                <strong>Completed:</strong> ${s.history.map(d => `<span class="hist-chip">${new Date(d).toLocaleDateString()}</span>`).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  });
+  html += `</div>`;
+
+  document.getElementById('patternsContent').innerHTML = html;
+}
+
+function renderContacts(){
+  const groups = {};
+  CONTACTS.forEach(c => {
+    if(!groups[c.team]) groups[c.team] = [];
+    groups[c.team].push(c);
+  });
+
+  let html = `
+    <div class="panel">
+      <h2>Survey Contacts</h2>
+      <div class="contact-groups">
+        ${Object.keys(groups).map(team => `
+          <div class="contact-group">
+            <h3>${team}</h3>
+            ${groups[team].map(c => `
+              <div class="contact-card">
+                <strong>${c.name}</strong>
+                <div class="c-role">${c.team}</div>
+                <div class="c-surveys"><strong>Surveys:</strong> ${c.surveys.join(', ')}</div>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('contactsContent').innerHTML = html;
+}
+
+function statusColor(status){
+  if(status === 'Complete') return 'var(--steel-tint)';
+  if(status === 'In Progress') return 'var(--purple-tint)';
+  return 'var(--grey-tint)';
+}
+
+/* ========================================================
+   MODAL: Edit Survey
+   ======================================================== */
+async function openEdit(surveyId){
+  let s = SURVEYS.find(x => x.id === surveyId);
+  if(!s) return;
+
+  document.getElementById('modalContent').innerHTML = `
+    <form id="editForm">
+      <h2>Edit Survey</h2>
+      <div class="m-sub">${s.id}</div>
+
+      <div class="field">
+        <label>Survey Name</label>
+        <input type="text" name="name" value="${s.name}" required />
+      </div>
+
+      <div class="field">
+        <label>Entity</label>
+        <select name="entity" required>
+          <option value="RSUKL" ${s.entity === 'RSUKL' ? 'selected' : ''}>RSUKL</option>
+          <option value="RREAGUK" ${s.entity === 'RREAGUK' ? 'selected' : ''}>RREAGUK</option>
+          <option value="RSHUKL" ${s.entity === 'RSHUKL' ? 'selected' : ''}>RSHUKL</option>
+          <option value="RSE" ${s.entity === 'RSE' ? 'selected' : ''}>RSE</option>
+          <option value="ROE" ${s.entity === 'ROE' ? 'selected' : ''}>ROE</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Frequency</label>
+        <select name="frequency" required>
+          <option value="weekly" ${s.frequency === 'weekly' ? 'selected' : ''}>Weekly</option>
+          <option value="monthly" ${s.frequency === 'monthly' ? 'selected' : ''}>Monthly</option>
+          <option value="quarterly" ${s.frequency === 'quarterly' ? 'selected' : ''}>Quarterly</option>
+          <option value="annual" ${s.frequency === 'annual' ? 'selected' : ''}>Annual</option>
+          <option value="biennial" ${s.frequency === 'biennial' ? 'selected' : ''}>Biennial</option>
+          <option value="triennial" ${s.frequency === 'triennial' ? 'selected' : ''}>Triennial</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Owner</label>
+        <input type="text" name="owner" value="${s.owner || ''}" />
+      </div>
+
+      <div class="field">
+        <label>Last Known Due Date</label>
+        <input type="date" name="lastDue" value="${s.last_due || ''}" />
+      </div>
+
+      <div class="field">
+        <label>Next Due Date</label>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin-bottom:8px;">
+          <input type="checkbox" id="manualToggle" ${s.manual_next_due ? 'checked' : ''} />
+          Manual override (set specific date from ONS/CSO)
+        </label>
+        <input type="date" name="nextDue" value="${s.next_due || ''}" ${s.manual_next_due ? '' : 'disabled'} />
+      </div>
+
+      <div class="field">
+        <label>Status</label>
+        <select name="status" required>
+          <option value="Not Started" ${s.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
+          <option value="In Progress" ${s.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+          <option value="Complete" ${s.status === 'Complete' ? 'selected' : ''}>Complete</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Excel Link</label>
+        <input type="text" name="excelLink" value="${s.excel_link || ''}" placeholder="https://..." />
+      </div>
+
+      <div class="field">
+        <label>Submission PDF</label>
+        <div class="file-row">
+          <input type="file" accept="application/pdf" id="pdfInput" />
+          <button type="button" class="btn small" id="pdfRemove" style="${s.submitted_pdf ? '' : 'display:none;'}">Remove</button>
+        </div>
+        <div class="file-current" id="pdfCurrent">${s.submitted_pdf ? `Attached: ${s.submitted_pdf}` : 'No file attached yet'}</div>
+      </div>
+
+      <div class="field">
+        <label>Contacts</label>
+        <div class="contact-picker">
+          ${CONTACTS.map(c => `
+            <label>
+              <input type="checkbox" value="${c.id}" ${s.contact_ids?.includes(c.id) ? 'checked' : ''} />
+              ${c.name} <span style="color:#8A9599;">(${c.team})</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Contacts summary (shown in Master Index)</label>
+        <input type="text" name="contactsSummary" value="${s.contacts_summary || ''}" />
+      </div>
+
+      <div class="field">
+        <label>Notes</label>
+        <textarea name="notes">${s.notes || ''}</textarea>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn" data-action="close-modal">Cancel</button>
+        <button type="submit" class="btn primary">Save changes</button>
+      </div>
+    </form>
+  `;
+
+  document.getElementById('overlay').classList.add('show');
+
+  const form = document.getElementById('editForm');
+  const nextDueInput = form.querySelector('[name=nextDue]');
+  form.querySelector('#manualToggle').addEventListener('change', e => {
+    nextDueInput.disabled = !e.target.checked;
+  });
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const updateData = {
+      name: fd.get('name'),
+      entity: fd.get('entity'),
+      frequency: fd.get('frequency'),
+      owner: fd.get('owner'),
+      last_due: fd.get('lastDue') || null,
+      next_due: fd.get('nextDue') || null,
+      status: fd.get('status'),
+      manual_next_due: fd.get('manualToggle') === 'on',
+      excel_link: fd.get('excelLink') || '',
+      contacts_summary: fd.get('contactsSummary') || '',
+      notes: fd.get('notes') || '',
+      contact_ids: [...form.querySelectorAll('.contact-picker input[type=checkbox]:checked')].map(cb => cb.value),
+    };
+
+    try {
+      const { error } = await supabase
+        .from('surveys')
+        .upsert([{ id: surveyId, ...updateData }]);
+      
+      if(error) throw error;
+      await loadSurveys();
+      closeModal();
+      renderAll();
+      updateSyncStatus('Saved');
+    } catch(e){
+      console.error('Save error:', e);
+      alert('Error saving: ' + e.message);
+    }
+  });
+}
+
+function closeModal(){
+  document.getElementById('overlay').classList.remove('show');
+}
+
+/* ========================================================
+   EVENT DELEGATION
+   ========================================================= */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-action]');
+  if(!t) return;
+  const action = t.dataset.action;
+  if(action === 'tab') { activeTab = t.dataset.tab; renderAll(); }
+  else if(action === 'edit') { openEdit(t.dataset.id); }
+  else if(action === 'close-modal') { closeModal(); }
+  else if(action === 'cal-prev') { calMonth--; if(calMonth < 0) { calMonth = 11; calYear--; } renderMain(); }
+  else if(action === 'cal-next') { calMonth++; if(calMonth > 11) { calMonth = 0; calYear++; } renderMain(); }
+  else if(action === 'cal-today') { calMonth = TODAY.getMonth(); calYear = TODAY.getFullYear(); renderMain(); }
+});
+
+document.getElementById('overlay').addEventListener('click', e => {
+  if(e.target.id === 'overlay') closeModal();
+});
+
+document.addEventListener('input', e => {
+  if(e.target.id === 'fq') { filters.q = e.target.value; renderMain(); }
+});
+
+document.addEventListener('change', async e => {
+  if(e.target.id === 'fcat') { filters.category = e.target.value; renderMain(); }
+  if(e.target.id === 'fstatus') { filters.status = e.target.value; renderMain(); }
+  if(e.target.id === 'fentity') { filters.entity = e.target.value; renderMain(); }
+  if(e.target.dataset && e.target.dataset.action === 'quick-status') {
+    const s = SURVEYS.find(x => x.id === e.target.dataset.id);
+    if(s) {
+      try {
+        await supabase.from('surveys').update({ status: e.target.value }).eq('id', s.id);
+        await loadSurveys();
+        renderAll();
+        updateSyncStatus('Saved');
+      } catch(err) {
+        console.error('Error updating status:', err);
+      }
+    }
+  }
+});
+
+function renderMain(){
+  if(activeTab === 'master') renderMaster();
+  else if(activeTab === 'calendar') renderCalendar();
+  else if(activeTab === 'patterns') renderPatterns();
+}
+
+// Initialize on load
+initDashboard();
+</script>
+</body>
+</html>
